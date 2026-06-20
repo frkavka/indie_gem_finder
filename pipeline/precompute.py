@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import scipy.sparse
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,16 @@ def _load_tfidf(out: Path) -> TfidfVectorizer:
     vec = TfidfVectorizer(tokenizer=_tag_tokenizer, token_pattern=None)
     vec.vocabulary_ = vocab
     vec.fixed_vocabulary_ = True
-    vec._tfidf.idf_ = idf  # setter が内部の _idf_diag を自動生成する
+
+    # sklearn 1.5+ では _tfidf は fit まで生成されないため明示的に作る。
+    # check_is_fitted は「_ で終わる属性」の存在で判定するため n_features_in_ も必要。
+    transformer = TfidfTransformer()
+    n = len(idf)
+    transformer._idf_diag = scipy.sparse.diags(
+        idf, offsets=0, shape=(n, n), format="csr", dtype=np.float64
+    )
+    transformer.n_features_in_ = n
+    vec._tfidf = transformer
     return vec
 
 
