@@ -107,33 +107,36 @@ def _render_deck(side: str, col, pool_df: pd.DataFrame) -> None:
             "",
         )
 
-        st.write("---")
-        if video_url:
-            components.html(
-                f"""
-                <div style="width:100%;border-radius:8px;overflow:hidden;background:#000">
-                  <video src="{video_url}" poster="{img_url}" loop muted playsinline
-                         onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"
-                         style="width:100%;display:block;cursor:pointer">
-                  </video>
-                </div>
-                """,
-                height=200,
-            )
-        else:
-            st.image(img_url, use_container_width=True)
+        with st.container(height=500, border=False):
+            if video_url:
+                components.html(
+                    f"""
+                    <div style="width:100%;border-radius:8px;overflow:hidden;background:#000">
+                      <video src="{video_url}" poster="{img_url}" loop muted playsinline
+                             onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"
+                             style="width:100%;display:block;cursor:pointer">
+                      </video>
+                    </div>
+                    """,
+                    height=200,
+                )
+            else:
+                components.html(
+                    f'<img src="{img_url}" style="width:100%;height:200px;object-fit:cover;border-radius:8px;">',
+                    height=210,
+                )
 
-        st.subheader(game["name"])
+            st.subheader(game["name"])
 
-        m1, m2 = st.columns(2)
-        m1.metric(t("match_metric"), f"{game.get('final_score', 0) * 100:.1f}%")
-        m2.metric(t("rating_metric"), f"{game.get('rating_ratio', 0) * 100:.1f}%")
+            m1, m2 = st.columns(2)
+            m1.metric(t("match_metric"), f"{game.get('final_score', 0) * 100:.1f}%")
+            m2.metric(t("rating_metric"), f"{game.get('rating_ratio', 0) * 100:.1f}%")
 
-        st.caption(t("tags_label", tags=game.get("tags", "")))
-        st.write(t("steam_link", appid=appid))
-        st.code(str(appid), language="text")
-        st.write("---")
+            st.caption(t("tags_label", tags=game.get("tags", "")))
+            st.write(t("steam_link", appid=appid))
+            st.code(str(appid), language="text")
 
+        st.divider()
         b1, b2 = st.columns(2)
         with b1:
             if st.button(t("btn_nashi"), key=f"nashi_{side}_{idx}", use_container_width=True):
