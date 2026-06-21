@@ -10,6 +10,10 @@ from pipeline.runner import start_pipeline
 
 load_dotenv()
 API_KEY = os.getenv("STEAM_API_KEY", "")
+IS_PREMIUM = os.getenv("PREMIUM", "false").lower() == "true"
+
+# 事前計算プールのデフォルト値（無料プランで固定される値）
+_POOL_DEFAULTS = {"review_min": 30, "review_max": 300, "positive_rate": 0.85}
 
 st.set_page_config(page_title="Indie Gem Finder — Setup", layout="centered", page_icon="💎")
 
@@ -35,16 +39,22 @@ steam_id_input = st.text_input(
 st.divider()
 st.subheader(t("section_params"))
 
-col1, col2 = st.columns(2)
-with col1:
-    review_min = st.slider(t("review_min_label"), 10, 500, params["review_min"], step=10)
-    positive_rate = st.slider(t("positive_rate_label"), 50, 99, int(params["positive_rate"] * 100))
-with col2:
-    review_max = st.slider(t("review_max_label"), 50, 5000, params["review_max"], step=50)
+if IS_PREMIUM:
+    col1, col2 = st.columns(2)
+    with col1:
+        review_min = st.slider(t("review_min_label"), 10, 500, params["review_min"], step=10)
+        positive_rate = st.slider(t("positive_rate_label"), 50, 99, int(params["positive_rate"] * 100))
+    with col2:
+        review_max = st.slider(t("review_max_label"), 50, 5000, params["review_max"], step=50)
 
-if review_min >= review_max:
-    st.error(t("review_range_error"))
-    st.stop()
+    if review_min >= review_max:
+        st.error(t("review_range_error"))
+        st.stop()
+else:
+    review_min = _POOL_DEFAULTS["review_min"]
+    review_max = _POOL_DEFAULTS["review_max"]
+    positive_rate = int(_POOL_DEFAULTS["positive_rate"] * 100)
+    st.info(t("params_locked_note"))
 
 st.divider()
 st.subheader(t("section_ab"))
