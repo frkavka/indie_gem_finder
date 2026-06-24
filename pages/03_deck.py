@@ -96,6 +96,17 @@ def _render_deck(side: str, col, pool_df: pd.DataFrame) -> None:
                 st.session_state[f"idx_{side}"] = 0
                 st.session_state[f"keep_{side}"] = []
                 st.rerun()
+            st.divider()
+            components.html(
+                """
+                <a href="https://buymeacoffee.com/ashoe" target="_blank">
+                  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+                       alt="Buy Me A Coffee"
+                       style="height:50px;width:auto;">
+                </a>
+                """,
+                height=60,
+            )
             return
 
         game = games[idx]
