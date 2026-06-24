@@ -42,6 +42,9 @@ st.caption(t("deck_caption"))
 if nashi_count >= 20:
     st.info(t("nashi_threshold_info", n=nashi_count))
     if st.button(t("btn_recompute"), type="primary", use_container_width=True):
+        for side in ["A", "B"]:
+            st.session_state[f"idx_{side}"] = 0
+            st.session_state[f"keep_{side}"] = []
         start_recompute(app_user_id, {**params, "steam_id": st.session_state.get("user_steam_id", "")}, API_KEY)
         st.switch_page("pages/02_computing.py")
 
