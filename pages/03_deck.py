@@ -97,6 +97,7 @@ def _render_deck(side: str, col, pool_df: pd.DataFrame) -> None:
                 st.session_state[f"keep_{side}"] = []
                 st.rerun()
             st.divider()
+            st.markdown(f"#### {t('deck_closing')}")
             components.html(
                 """
                 <a href="https://buymeacoffee.com/ashoe" target="_blank">
