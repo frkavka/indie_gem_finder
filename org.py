@@ -95,11 +95,15 @@ import time
 import pandas as pd
 import requests
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 # ==========================================
-# 準備：ご自身のAPIキーとSteam IDを入力してください
+# 準備：.env に STEAM_API_KEY / STEAM_ID を設定してください
 # ==========================================
-API_KEY = "883FA8F6BF390E55DADDB71BFAA4BF3C"
-STEAM_ID = "76561199040391831"
+API_KEY = os.environ["STEAM_API_KEY"]
+STEAM_ID = os.environ["STEAM_ID"]
 
 # ==========================================
 # 1. 所持ゲームとプレイ時間の取得
