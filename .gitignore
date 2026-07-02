@@ -1,7 +1,11 @@
 .env
 app.db
+*.db
 data/games.csv
+recommendation_base_2.csv
 __pycache__/
 *.pyc
 .DS_Store
 .streamlit/secrets.toml
+.claude/
+.kiro/

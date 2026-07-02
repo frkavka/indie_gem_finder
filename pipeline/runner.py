@@ -10,7 +10,6 @@ from pipeline import bert_encoder, fetcher, matcher, precompute, projector, vect
 
 logger = logging.getLogger(__name__)
 
-_DATA_CSV = "data/games.csv"
 
 
 # ── シリアライズ ──────────────────────────────────────────────────────────────
@@ -68,9 +67,8 @@ def _run_pipeline(app_user_id: str, params: dict, api_key: str) -> None:
 
         # Phase 4: TF-IDF ユーザーベクトル
         update_job(app_user_id, "running", "Building tag vector...", 0.55)
-        csv_tags = vectorizer.load_all_tags(_DATA_CSV)
         user_vec_tags = vectorizer.build_user_vector_tags(
-            seed_data, tfidf_vectorizer, seed_weights, csv_tags=csv_tags
+            seed_data, tfidf_vectorizer, seed_weights, csv_tags=None
         )
 
         # Phase 5: BERT ユーザーベクトル（シードゲームのみ）

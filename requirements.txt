@@ -8,3 +8,4 @@ torchvision
 requests>=2.31.0
 cloudscraper>=1.2.71
 python-dotenv>=1.0.0
+streamlit-cookies-controller>=0.0.4

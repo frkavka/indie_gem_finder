@@ -3,6 +3,7 @@ import uuid
 
 import streamlit as st
 from dotenv import load_dotenv
+from streamlit_cookies_controller import CookieController
 
 from db.crud import get_job, upsert_user
 from db.schema import init_db
@@ -12,13 +13,18 @@ st.set_page_config(page_title="Indie Gem Finder", layout="wide", page_icon="💎
 
 init_db()
 
+_cookies = CookieController()
+
 # ── Cookie から AppUserID を復元 or 新規生成 ──────────────────────────────────
 if "app_user_id" not in st.session_state:
-    cookie_val = st.query_params.get("uid")
+    cookie_val = _cookies.get("app_user_id")
     if cookie_val:
         st.session_state.app_user_id = cookie_val
     else:
-        st.session_state.app_user_id = str(uuid.uuid4())
+        new_id = str(uuid.uuid4())
+        _cookies.set("app_user_id", new_id, max_age=60 * 60 * 24 * 365 * 2, same_site="lax")
+        st.session_state.app_user_id = new_id
+        st.rerun()
 
 app_user_id = st.session_state.app_user_id
 upsert_user(app_user_id)
