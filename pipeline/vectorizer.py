@@ -1,8 +1,12 @@
+import logging
+
 import numpy as np
 import pandas as pd
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from numpy.linalg import norm
+
+logger = logging.getLogger(__name__)
 
 
 def _tag_tokenizer(x: str) -> list[str]:
@@ -22,17 +26,6 @@ _COLS = [
     "developers", "publishers", "categories", "genres", "tags",
     "screenshots", "movies",
 ]
-
-
-@st.cache_data(show_spinner=False)
-def load_all_tags(csv_path: str) -> dict[int, str]:
-    """全ゲームの appid→tags_str マップを返す。SteamSpy が取れない場合のフォールバック用。"""
-    df = pd.read_csv(csv_path, header=0, names=_COLS, engine="python", on_bad_lines="skip")
-    df["appid"] = pd.to_numeric(df["appid"], errors="coerce")
-    df = df.dropna(subset=["appid", "tags"])
-    df = df[np.isfinite(df["appid"])]
-    df["appid"] = df["appid"].astype(np.int64)
-    return dict(zip(df["appid"], df["tags"].fillna("")))
 
 
 @st.cache_data(show_spinner=False)
@@ -79,20 +72,35 @@ def build_user_vector_tags(
     seed_data: dict[int, dict],
     vectorizer: TfidfVectorizer,
     seed_weights: dict[int, float],
-    csv_tags: dict[int, str] | None = None,
 ) -> np.ndarray:
     """重み付きTF-IDFユーザーベクトルを構築・L2正規化して返す。
-    SteamSpy タグが空の場合は csv_tags（Kaggle CSV）をフォールバックとして使う。
+
+    タグの供給（対応表 + SteamSpy）は fetcher.fetch_seed_data_parallel が担う。
+    全シードのタグが空でゼロベクトルになった場合は ValueError を送出する。
+    黙って返すと sim_tags が全件 0.0 になり、A/B比較が実質単一モデルに
+    退化したまま動き続けてしまうため。
     """
     vec = np.zeros(len(vectorizer.get_feature_names_out()))
+    skipped: list[int] = []
     for appid, data in seed_data.items():
         tags = data.get("tags", "")
-        if not tags and csv_tags:
-            tags = csv_tags.get(int(appid), "")
         if not tags:
+            skipped.append(appid)
             continue
         weight = seed_weights.get(appid, 1.0)
         vec += vectorizer.transform([tags]).toarray()[0] * weight
 
     n = norm(vec)
-    return vec / n if n > 1e-9 else vec
+    if n <= 1e-9:
+        logger.error(
+            "タグベクトル構築失敗: 全 %d 件のシードでタグが空 (appids=%s)",
+            len(seed_data), sorted(seed_data.keys()),
+        )
+        raise ValueError(
+            "タグベクトルを構築できませんでした（全シードゲームのタグが空）。"
+            "シードタグ対応表（precomputed/seed_tags.parquet）と SteamSpy への"
+            "接続状況を確認してください。"
+        )
+    if skipped:
+        logger.warning("タグが空のシードをスキップ: %s", skipped)
+    return vec / n

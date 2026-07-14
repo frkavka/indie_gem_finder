@@ -63,12 +63,14 @@ def test_weights_influence_direction():
     assert result_puzzle[puzzle_idx] > result_action[puzzle_idx]
 
 
-def test_all_empty_tags_returns_zero_vector():
-    """全シードのタグが空の場合はゼロベクトルを返すこと（正規化しない）"""
+def test_all_empty_tags_raises():
+    """全シードのタグが空の場合はゼロベクトルを黙って返さず ValueError を送出すること。
+    サイレントに返すと sim_tags が全件 0.0 になり A/B比較が退化するため（フェイルファスト）。
+    """
     corpus = ["Action,RPG"]
     vec = _make_vectorizer(corpus)
     seed_data = {1: {"tags": ""}, 2: {"tags": ""}}
     seed_weights = {1: 1.0, 2: 1.0}
 
-    result = build_user_vector_tags(seed_data, vec, seed_weights)
-    assert norm(result) < 1e-9
+    with pytest.raises(ValueError, match="タグ"):
+        build_user_vector_tags(seed_data, vec, seed_weights)

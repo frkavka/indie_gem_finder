@@ -209,13 +209,25 @@ def fetch_about_with_cache(appid: int) -> str:
     return ""
 
 
-def fetch_seed_data_parallel(seed_appids: list[int], max_workers: int = 3) -> dict[int, dict]:
-    """ThreadPoolExecutor でタグ + About を並列取得する。"""
+def fetch_seed_data_parallel(
+    seed_appids: list[int],
+    max_workers: int = 3,
+    static_tags: dict[int, str] | None = None,
+) -> dict[int, dict]:
+    """ThreadPoolExecutor でタグ + About を並列取得する。
+
+    タグは static_tags（games.csv 由来の対応表）を一次供給源とし、
+    載っていない appid（データセット以降の新作など）のみ SteamSpy を叩く。
+    SteamSpy は Cloudflare にブロックされる環境があるため依存を最小化する。
+    """
     results: dict[int, dict] = {}
 
     def _fetch_one(appid: int) -> tuple[int, dict]:
+        tags = (static_tags or {}).get(appid, "")
+        if not tags:
+            tags = fetch_tags_with_cache(appid)
         return appid, {
-            "tags": fetch_tags_with_cache(appid),
+            "tags": tags,
             "about": fetch_about_with_cache(appid),
         }
 

@@ -1,9 +1,6 @@
-import os
-
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-from dotenv import load_dotenv
 
 from db.crud import (
     add_nashi,
@@ -14,10 +11,7 @@ from db.crud import (
     reset_job,
 )
 from i18n import render_lang_selector, t
-from pipeline.runner import deserialize_result, start_recompute
-
-load_dotenv()
-API_KEY = os.getenv("STEAM_API_KEY", "")
+from pipeline.runner import deserialize_result, run_recompute_light
 
 st.set_page_config(page_title="Indie Gem Finder", layout="wide", page_icon="💎")
 
@@ -42,11 +36,16 @@ st.caption(t("deck_caption"))
 if nashi_count >= 20:
     st.info(t("nashi_threshold_info", n=nashi_count))
     if st.button(t("btn_recompute"), type="primary", use_container_width=True):
+        try:
+            with st.spinner(t("recompute_spinner")):
+                run_recompute_light(app_user_id)
+        except Exception as e:
+            st.error(t("error_occurred", msg=str(e)))
+            st.stop()
         for side in ["A", "B"]:
             st.session_state[f"idx_{side}"] = 0
             st.session_state[f"keep_{side}"] = []
-        start_recompute(app_user_id, {**params, "steam_id": st.session_state.get("user_steam_id", "")}, API_KEY)
-        st.switch_page("pages/02_computing.py")
+        st.rerun()
 
 st.divider()
 

@@ -26,9 +26,11 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_OUT = "precomputed"
 _META_COLS = ["appid", "name", "tags", "rating_ratio", "movies", "total_reviews"]
+_SEED_TAGS_FILE = "seed_tags.parquet"
 
 _lock = threading.Lock()
 _cache: dict = {}
+_seed_tags_cache: dict[int, str] | None = None
 
 
 # ── TfidfVectorizer の pickle なし保存・復元 ──────────────────────────────────
@@ -109,6 +111,32 @@ def build(
 
     logger.info("保存完了 → %s/ (%d 件)", out_dir, len(hidden_df))
 
+    build_seed_tags(csv_path, out_dir)
+
+
+def build_seed_tags(csv_path: str = "data/games.csv", out_dir: str = _DEFAULT_OUT) -> None:
+    """全ゲームの appid→tags 対応表を games.csv から抽出して保存する。
+
+    ランタイムのシードタグ供給源。games.csv 本体（371MB）はリポジトリに
+    含めないが、この対応表は数MBに収まるため同梱してデプロイする。
+    SteamSpy はこの表に載っていない appid（データセット以降の新作）専用になる。
+    """
+    from pipeline.vectorizer import _COLS
+
+    out = Path(out_dir)
+    out.mkdir(exist_ok=True)
+
+    logger.info("games.csv から appid→tags 対応表を抽出中...")
+    # usecols は names と併用すると列がズレるため使わない（load_hidden_gems と同じ読み方）
+    df = pd.read_csv(csv_path, header=0, names=_COLS, engine="python", on_bad_lines="skip")
+    df = df[["appid", "tags"]]
+    df["appid"] = pd.to_numeric(df["appid"], errors="coerce")
+    df = df.dropna(subset=["appid", "tags"])
+    df = df[np.isfinite(df["appid"])]  # 壊れた行由来の inf を除去
+    df["appid"] = df["appid"].astype(np.int64)
+    df.to_parquet(out / _SEED_TAGS_FILE, index=False)
+    logger.info("保存完了 → %s (%d 件)", out / _SEED_TAGS_FILE, len(df))
+
 
 # ── ロード ────────────────────────────────────────────────────────────────────
 
@@ -161,6 +189,23 @@ def load(out_dir: str = _DEFAULT_OUT) -> tuple[
     return _cache["hidden_df"], _cache["tfidf_vec"], _cache["tfidf_matrix"], _cache["embeddings"]
 
 
+def load_seed_tags(out_dir: str = _DEFAULT_OUT) -> dict[int, str]:
+    """appid→tags 対応表をロードする。プロセス内でキャッシュされる。"""
+    global _seed_tags_cache
+    with _lock:
+        if _seed_tags_cache is None:
+            path = Path(out_dir) / _SEED_TAGS_FILE
+            if not path.exists():
+                raise RuntimeError(
+                    f"シードタグ対応表が見つかりません: {path}\n"
+                    "`python -m pipeline.precompute --seed-tags-only` を先に実行してください。"
+                )
+            df = pd.read_parquet(path)
+            _seed_tags_cache = dict(zip(df["appid"].astype(int), df["tags"].astype(str)))
+            logger.info("シードタグ対応表ロード完了 (%d 件)", len(_seed_tags_cache))
+    return _seed_tags_cache
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -172,6 +217,13 @@ if __name__ == "__main__":
     parser.add_argument("--review-min", type=int, default=30)
     parser.add_argument("--review-max", type=int, default=300)
     parser.add_argument("--positive-rate", type=float, default=0.85)
+    parser.add_argument(
+        "--seed-tags-only", action="store_true",
+        help="appid→tags 対応表のみ抽出する（BERT等の重い再計算をスキップ）",
+    )
     args = parser.parse_args()
 
-    build(args.csv, args.out, args.review_min, args.review_max, args.positive_rate)
+    if args.seed_tags_only:
+        build_seed_tags(args.csv, args.out)
+    else:
+        build(args.csv, args.out, args.review_min, args.review_max, args.positive_rate)
